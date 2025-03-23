@@ -3,7 +3,6 @@ import java.util.function.Consumer;
 
 public class Adaptive {
 
-
     public static class Time implements Comparable<Time> {
         private static int counter = 0;
         private final int id;
@@ -22,16 +21,10 @@ public class Adaptive {
         }
 
         public static void spliceOut(Time start, Time end) {
-//            if (start.next != end || end.prev != start) {
-//                throw new IllegalArgumentException("start and end are not consecutive nodes");
-//            }
-
             start.next = end.next;
-
             if (end.next != null) {
                 end.next.prev = start;
             }
-
             end.prev = null;
         }
 
@@ -105,6 +98,9 @@ public class Adaptive {
         ) {
             Modifiable<T> m = new Modifiable<>(cmp);
             initializer.accept(m);
+            Time modTime = new Time();
+            Time.insertAfter(currentTime, modTime);
+            m.timestamp = modTime;
             return m;
         }
 
@@ -118,6 +114,7 @@ public class Adaptive {
                 T value = source.read();
                 reader.accept(value);
             }, start, end);
+
             source.addEdge(edge);
         }
 
@@ -125,8 +122,7 @@ public class Adaptive {
             while (!queue.isEmpty()) {
                 Edge edge = queue.poll();
 
-                if (edge.start.next == null || edge.end.prev == null ||
-                        edge.start.next != edge.end) {
+                if (edge.start.next == null || edge.end.prev == null || edge.start.next != edge.end) {
                     continue;
                 }
 
@@ -138,7 +134,6 @@ public class Adaptive {
                 Time.spliceOut(startTime, endTime);
 
                 Time originalCurrentTime = currentTime;
-
                 currentTime = startTime;
 
                 edge.reader.run();
@@ -159,31 +154,46 @@ public class Adaptive {
     //----------------------- Usage Example -----------------------//
 
     public static void main(String[] args) {
-        Modifiable<Integer> input = AdaptiveEngine.<Integer>mod(
-                Comparator.naturalOrder(),
-                m -> m.write(5)
+        List<Integer> list = Arrays.asList(5, 3, 8, 1, 9, 2);
+
+        // Normal quicksort timing
+        List<Integer> normalList = new ArrayList<>(list);
+        long startNormal = System.nanoTime();
+        normalList.sort(Integer::compareTo);
+        long endNormal = System.nanoTime();
+        System.out.println("Normal Quicksort: " + normalList + " Time: " + (endNormal - startNormal) + " ns");
+
+        // Adaptive quicksort timing
+        Modifiable<List<Integer>> input = AdaptiveEngine.mod(
+                Comparator.comparing(List::toString),
+                m -> m.write(new ArrayList<>(list))
         );
 
-        Modifiable<Integer> result = AdaptiveEngine.<Integer>mod(
-                Comparator.naturalOrder(),
+        Modifiable<List<Integer>> sortedList = AdaptiveEngine.mod(
+                Comparator.comparing(List::toString),
                 m -> {
-                    // Initial value calculation
-                    int initialValue = input.read() * 2;
-                    m.write(initialValue);
+                    List<Integer> sorted = new ArrayList<>(input.read());
+                    sorted.sort(Integer::compareTo);
+                    m.write(sorted);
 
-                    // Reactive update setup
                     AdaptiveEngine.read(input, val -> {
-                        m.write(val * 2);
+                        List<Integer> updated = new ArrayList<>(val);
+                        updated.sort(Integer::compareTo);
+                        m.write(updated);
                     });
                 }
         );
 
-        System.out.println("Initial result: " + result.read()); // Now works
+        long startAdaptive = System.nanoTime();
+        sortedList.read();
+        long endAdaptive = System.nanoTime();
+        System.out.println("Adaptive Quicksort: " + sortedList.read() + " Time: " + (endAdaptive - startAdaptive) + " ns");
 
-        input.write(8);
-//        AdaptiveEngine.propagate();
-        input.write(10);
+        // Modify input and measure time
+        input.write(Arrays.asList(5, 3, 8, 1, 9, 2, 4));
+        long startUpdate = System.nanoTime();
         AdaptiveEngine.propagate();
-        System.out.println("Updated result: " + result.read()); // 16
+        long endUpdate = System.nanoTime();
+        System.out.println("Updated Adaptive Quicksort: " + sortedList.read() + " Time: " + (endUpdate - startUpdate) + " ns");
     }
 }
