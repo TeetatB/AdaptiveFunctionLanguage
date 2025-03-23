@@ -154,7 +154,8 @@ public class Adaptive {
     //----------------------- Usage Example -----------------------//
 
     public static void main(String[] args) {
-        List<Integer> list = Arrays.asList(5, 3, 8, 1, 9, 2);
+        List<Integer> list = RandomNumberList.listGen(100);
+        List<Integer> nlist = new ArrayList<Integer>(list);
 
         // Normal quicksort timing
         List<Integer> normalList = new ArrayList<>(list);
@@ -190,7 +191,8 @@ public class Adaptive {
         System.out.println("Adaptive Quicksort: " + sortedList.read() + " Time: " + (endAdaptive - startAdaptive) + " ns");
 
         // Modify input and measure time
-        input.write(Arrays.asList(5, 3, 8, 1, 9, 2, 4));
+        nlist.add(200000000);
+        input.write(nlist);
         long startUpdate = System.nanoTime();
         AdaptiveEngine.propagate();
         long endUpdate = System.nanoTime();
